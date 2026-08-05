@@ -105,7 +105,10 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
     },
   );
   if (!r.ok) return sendJson(res, r.status, { error: await r.text() });
-  sendJson(res, 200, await r.json());
+  // GitHub's REST docs describe a 200 carrying workflow_run_id/run_url/html_url,
+  // but the endpoint actually answers 204 with an empty body. The UI therefore
+  // discovers the run by polling /api/status rather than from this response.
+  sendJson(res, 202, { ok: true });
 }
 
 interface WorkflowRun {
