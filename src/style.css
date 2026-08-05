@@ -113,11 +113,18 @@ input:disabled {
   color: var(--muted);
 }
 
-.status.error {
+.links {
+  min-height: 1.25rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.status .error {
   color: #f85149;
 }
 
-.status.working::after {
+.status .working::after {
   content: "";
   display: inline-block;
   width: 0.6em;

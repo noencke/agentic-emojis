@@ -70,25 +70,34 @@ async function handleImage(res: ServerResponse): Promise<void> {
   sendJson(res, 200, { grid: await r.text() });
 }
 
-/** Whether a run is active, so the UI can show progress and hold the submit button. */
+const brief = (run: WorkflowRun | undefined) =>
+  run
+    ? {
+        id: run.id,
+        number: run.run_number,
+        status: run.status,
+        conclusion: run.conclusion,
+        url: run.html_url,
+      }
+    : null;
+
+/**
+ * One request covers everything the UI needs: whether a run is active (so it can
+ * show progress and hold the submit button), and the last successful run, which is
+ * the one that drew the picture currently on the default branch.
+ */
 async function handleStatus(res: ServerResponse): Promise<void> {
   const r = await github(
-    `/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=5`,
+    `/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=10`,
   );
   if (!r.ok) return sendJson(res, r.status, { error: await r.text() });
   const { workflow_runs: runs = [] } = (await r.json()) as { workflow_runs?: WorkflowRun[] };
   const active = runs.find((run) => ACTIVE.has(run.status));
-  const latest = runs[0];
   sendJson(res, 200, {
     busy: Boolean(active),
-    run: active ?? latest
-      ? {
-          id: (active ?? latest)!.id,
-          status: (active ?? latest)!.status,
-          conclusion: (active ?? latest)!.conclusion,
-          url: (active ?? latest)!.html_url,
-        }
-      : null,
+    active: brief(active),
+    lastSuccess: brief(runs.find((run) => run.conclusion === "success")),
+    latest: brief(runs[0]),
   });
 }
 
@@ -113,6 +122,7 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
 
 interface WorkflowRun {
   id: number;
+  run_number: number;
   status: string;
   conclusion: string | null;
   html_url: string;

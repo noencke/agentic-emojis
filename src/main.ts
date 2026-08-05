@@ -5,6 +5,7 @@ const formEl = document.querySelector<HTMLFormElement>("#form")!;
 const promptEl = document.querySelector<HTMLInputElement>("#prompt")!;
 const submitEl = document.querySelector<HTMLButtonElement>("#submit")!;
 const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
+const linksEl = document.querySelector<HTMLParagraphElement>("#links")!;
 
 const POLL_MS = 3_000;
 /** A dispatched run takes a moment to show up in the API; stay locked until it does. */
@@ -12,10 +13,20 @@ const DISPATCH_GRACE_MS = 30_000;
 
 interface RunInfo {
   id: number;
+  number: number;
   status: string;
   conclusion: string | null;
   url: string;
 }
+
+interface Status {
+  busy: boolean;
+  active: RunInfo | null;
+  lastSuccess: RunInfo | null;
+  latest: RunInfo | null;
+}
+
+const message = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
 let busy = false;
 let dispatchedAt: number | null = null;
@@ -57,31 +68,47 @@ async function loadImage(): Promise<void> {
   renderGrid(grid);
 }
 
-function setBusy(next: boolean, run: RunInfo | null): void {
+function runLink(run: RunInfo, text: string): HTMLAnchorElement {
+  const link = document.createElement("a");
+  link.href = run.url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = text;
+  return link;
+}
+
+function applyBusy(next: boolean): void {
   busy = next;
   submitEl.disabled = next;
   promptEl.disabled = next;
   gridEl.classList.toggle("working", next);
+}
 
-  if (next) {
-    statusEl.className = "status working";
-    statusEl.textContent = run ? `Drawing… (run ${run.id})` : "Drawing…";
-    return;
-  }
-  statusEl.className = "status";
-  statusEl.textContent =
-    run && run.conclusion && run.conclusion !== "success"
-      ? `Last run ${run.conclusion}. See the run log for details.`
-      : "";
+/** The label carries the state class so `.working` can animate its trailing dots. */
+function setStatus(
+  kind: "" | "working" | "error",
+  text: string,
+  link?: { run: RunInfo; text: string },
+): void {
+  const label = document.createElement("span");
+  if (kind) label.className = kind;
+  label.textContent = text;
+  statusEl.replaceChildren(label);
+  if (link) statusEl.append(" — ", runLink(link.run, link.text));
+}
+
+/** Which run drew the picture currently on the default branch. */
+function setProvenance(run: RunInfo | null): void {
+  if (!run) return linksEl.replaceChildren();
+  linksEl.replaceChildren("Current picture drawn by ", runLink(run, `run #${run.number}`));
 }
 
 async function poll(): Promise<void> {
-  let status: { busy: boolean; run: RunInfo | null };
+  let status: Status;
   try {
     status = await api("/api/status");
   } catch (err) {
-    statusEl.className = "status error";
-    statusEl.textContent = err instanceof Error ? err.message : String(err);
+    setStatus("error", message(err));
     return;
   }
 
@@ -89,9 +116,26 @@ async function poll(): Promise<void> {
   const withinGrace =
     dispatchedAt !== null && Date.now() - dispatchedAt < DISPATCH_GRACE_MS;
   const busyNow = status.busy || withinGrace;
-
   const finished = busy && !busyNow;
-  setBusy(busyNow, status.run);
+
+  applyBusy(busyNow);
+  const { active, latest } = status;
+  if (busyNow) {
+    setStatus(
+      "working",
+      "Drawing",
+      active ? { run: active, text: `watch run #${active.number}` } : undefined,
+    );
+  } else if (latest?.conclusion && latest.conclusion !== "success") {
+    setStatus("error", `Last run ${latest.conclusion}.`, {
+      run: latest,
+      text: `see run #${latest.number}`,
+    });
+  } else {
+    setStatus("", "");
+  }
+  setProvenance(status.lastSuccess);
+
   if (finished) {
     dispatchedAt = null;
     await loadImage();
@@ -103,8 +147,8 @@ formEl.addEventListener("submit", async (event) => {
   const prompt = promptEl.value.trim();
   if (busy || !prompt) return;
 
-  setBusy(true, null);
-  statusEl.textContent = "Dispatching…";
+  applyBusy(true);
+  setStatus("working", "Dispatching");
   try {
     await api("/api/dispatch", {
       method: "POST",
@@ -115,15 +159,11 @@ formEl.addEventListener("submit", async (event) => {
     dispatchedAt = Date.now();
     setTimeout(() => void poll(), 1_500);
   } catch (err) {
-    setBusy(false, null);
-    statusEl.className = "status error";
-    statusEl.textContent = err instanceof Error ? err.message : String(err);
+    applyBusy(false);
+    setStatus("error", message(err));
   }
 });
 
-await loadImage().catch((err: unknown) => {
-  statusEl.className = "status error";
-  statusEl.textContent = err instanceof Error ? err.message : String(err);
-});
+await loadImage().catch((err: unknown) => setStatus("error", message(err)));
 await poll();
 setInterval(() => void poll(), POLL_MS);

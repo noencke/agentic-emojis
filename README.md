@@ -37,7 +37,7 @@ Vite dev server proxies three routes, holding the credential server-side.
 | Route | Purpose |
 | --- | --- |
 | `GET /api/image` | Reads `image.txt` from `main` via the Contents API (always fresh, unlike the raw CDN) |
-| `GET /api/status` | Lists recent runs so the UI can show progress and hold the submit button |
+| `GET /api/status` | Lists recent runs so the UI can show progress, link to runs, and hold the submit button |
 | `POST /api/dispatch` | Fires the workflow with the user's prompt |
 
 **Reaching the agent.** gh-aw compiles `${{ github.event.inputs.prompt }}` in the
