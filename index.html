@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agentic Emojis</title>
+  </head>
+  <body>
+    <main>
+      <h1>Agentic Emojis</h1>
+      <p class="sub">
+        A 10&times;10 emoji picture stored in
+        <a href="https://github.com/noencke/agentic-emojis/blob/main/image.txt">image.txt</a>.
+        Describe a change and an agentic workflow will redraw it.
+      </p>
+
+      <div id="grid" class="grid" aria-label="Emoji picture"></div>
+
+      <form id="form">
+        <input
+          id="prompt"
+          type="text"
+          autocomplete="off"
+          placeholder="e.g. add a sun in the top right corner"
+        />
+        <button id="submit" type="submit">Draw</button>
+      </form>
+
+      <p id="status" class="status"></p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
