@@ -9,7 +9,9 @@ on:
         required: true
         type: string
 
-engine: copilot
+engine:
+  id: copilot
+  model: claude-opus-5?effort=high
 
 permissions:
   contents: read
