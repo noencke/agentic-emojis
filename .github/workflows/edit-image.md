@@ -11,7 +11,8 @@ on:
 
 engine:
   id: copilot
-  model: claude-opus-5?effort=high
+  model: claude-opus-5
+  args: ["--effort=max"]
 
 permissions:
   contents: read
